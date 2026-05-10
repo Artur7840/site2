@@ -1,15 +1,19 @@
+import os
 from flask import Flask, send_from_directory
 from flask_jwt_extended import JWTManager
 from backend.config import Config
 from backend.db import close_db
 from backend.api import delete_workout
 
+# Абсолютный путь к папке frontend
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRONTEND_DIR = os.path.join(BASE_DIR, 'frontend')
+
 def create_app():
-    app = Flask(__name__, static_folder='../frontend', static_url_path='')
+    app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path='')
     app.config.from_object(Config)
     JWTManager(app)
 
-    # Регистрация закрытия БД после запроса
     app.teardown_appcontext(close_db)
 
     from backend.auth import register, login
@@ -31,14 +35,17 @@ def create_app():
 
     @app.route('/')
     def index():
-        return send_from_directory('../frontend', 'index.html')
-    
-    @app.route('/<path:path>')
-    def static_files(path):
-        return send_from_directory('../frontend', path)
+        return send_from_directory(FRONTEND_DIR, 'index.html')
+
+    @app.route('/<path:filename>')
+    def serve_frontend(filename):
+        return send_from_directory(FRONTEND_DIR, filename)
 
     return app
 
+# Создаём экземпляр приложения (нужен для Gunicorn)
+app = create_app()
+
 if __name__ == '__main__':
-    app = create_app()
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
